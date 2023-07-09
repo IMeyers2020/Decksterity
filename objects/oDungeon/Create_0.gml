@@ -30,6 +30,9 @@ iterations = 0;
 // The maximum number of failed iterations before quitting generation
 iterationMax = 50;
 
+// Whether or not the shop for this floor has been created already
+hasCreatedShop = false;
+
 GenerateNewDungeon = function() {
  
     // Reset dungeon data
@@ -260,6 +263,18 @@ GenerateNewDungeon = function() {
             CreateRoom(_roomX1, _roomY1, _roomX2, _roomY2, true);
         }
     }
+	
+	// Set type of last dungeon to boss room
+	valToReplace = ds_list_find_value(roomList, ds_list_size(roomList) - 1);
+	newVal = CreateRoom(valToReplace.x1, valToReplace.y1, valToReplace.x2, valToReplace.y2, false, DungeonTypes.BOSS);
+	ds_list_replace(roomList, ds_list_size(roomList) - 1, newVal);
+	
+	// If a shop has been created, turn the last non-boss room into a shop
+	if(!hasCreatedShop) {
+		valToReplace = ds_list_find_value(roomList, ds_list_size(roomList) - 2);
+		newVal = CreateRoom(valToReplace.x1, valToReplace.y1, valToReplace.x2, valToReplace.y2, false, DungeonTypes.SHOP);
+		ds_list_replace(roomList, ds_list_size(roomList) - 2, newVal);
+	}
 
     for (var xx = 0; xx < _dungeonWidth; xx++) {
         for (var yy = 0; yy < _dungeonHeight; yy++) {
@@ -285,7 +300,7 @@ GenerateNewDungeon = function() {
     }
 }
 
-CreateRoom = function(_x1, _y1, _x2, _y2, startRoom = false) {
+CreateRoom = function(_x1, _y1, _x2, _y2, startRoom = false, overrideType = pointer_null) {
 	
 	if(startRoom) {
 		view_camera[0] = camera_create();
@@ -295,7 +310,25 @@ CreateRoom = function(_x1, _y1, _x2, _y2, startRoom = false) {
 		camera_apply(view_camera[0]);
 	}
 	
-    currentRoom = new DungeonRoom(_x1, _y1, _x2, _y2);
+	if(overrideType == pointer_null) {
+		// Default to a regular minion room
+		currentRoomType = DungeonTypes.MINION;
+	
+		// If you are creating the first room, create a spawn room instead
+		if(startRoom) {
+			currentRoomType = DungeonTypes.SPAWN; 
+		} else {
+			// Otherwise, if you haven't yet created a shop room, there is a 1 in 5 chance to spawn that instead.
+			if(!hasCreatedShop && random(5) >= 4) {
+				currentRoomType = DungeonTypes.SHOP;
+				hasCreatedShop = true;
+			}
+		}
+	} else {
+		currentRoomType = overrideType;
+	}
+	
+    currentRoom = new DungeonRoom(_x1, _y1, _x2, _y2, currentRoomType);
     ds_list_add(roomList, currentRoom);
  
     // Fill the dungeon with a room
